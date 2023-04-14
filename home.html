@@ -17,16 +17,6 @@
     <link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.css" type="text/css"
           rel="stylesheet">
     <style>
-        @media (max-width: 768px) {
-            button.msg_submit {
-                display: inline-block;
-            }
-
-            .time_date {
-                display: none;
-            }
-        }
-
         html, body {
             background-color: #1b1e21;
         }
@@ -479,6 +469,18 @@
             width: 100%;
             max-width: 100%;
             margin-top: 30px;
+        }
+
+        /* phones */
+        @media only screen and (max-width: 768px) {
+            button.msg_submit {
+                margin-top: 10px;
+                display: inline-block;
+            }
+
+            .time_date {
+                display: none;
+            }
         }
     </style>
 </head>
