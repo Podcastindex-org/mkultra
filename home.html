@@ -1,0 +1,474 @@
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Content-Security-Policy"
+          content="script-src cdnjs.cloudflare.com maxcdn.bootstrapcdn.com 'self';">
+
+    <!-- Scripts -->
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+    <script src="//maxcdn.bootstrapcdn.com/bootstrap/4.1.1/js/bootstrap.bundle.min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/bootbox.js/5.5.2/bootbox.min.js"></script>
+    <script src="/utils.js?v=6"></script>
+    <script src="/nostr.js?v=6"></script>
+    <script src="/home.js?v=80"></script>
+
+    <!-- Styles -->
+    <link href="//maxcdn.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css" rel="stylesheet" id="bootstrap-css">
+    <link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.css" type="text/css"
+          rel="stylesheet">
+    <style>
+        html, body {
+            background-color: #1b1e21;
+        }
+
+        /* Works on Firefox */
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: #1b1e21 #272727;
+        }
+
+        /* Works on Chrome, Edge, and Safari */
+        *::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        *::-webkit-scrollbar-track {
+            background: #1b1e21;
+        }
+
+        *::-webkit-scrollbar-thumb {
+            background-color: #272727;
+            border-radius: 20px;
+            border: none;
+        }
+
+        .container {
+            max-width: 960px;
+            margin: auto;
+        }
+
+        img {
+            max-width: 100%;
+        }
+
+        .inbox_people {
+            float: left;
+            overflow: hidden;
+            width: 40%;
+            border-right: 1px solid #c4c4c4;
+            background-color: #2b2b2b;
+        }
+
+        .inbox_msg {
+            border-bottom: solid #4c4c4c 1px;
+            clear: both;
+            overflow: hidden;
+            background-color: #1b1e21;
+            height: 80%;
+        }
+
+        .top_spac {
+            margin: 20px 0 0;
+        }
+
+
+        .recent_heading {
+            float: left;
+            width: 40%;
+        }
+
+        .srch_bar {
+            display: inline-block;
+            text-align: right;
+            width: 60%;
+        }
+
+        .headind_srch {
+            padding: 10px 29px 10px 20px;
+            overflow: hidden;
+            border-bottom: 1px solid #c4c4c4;
+        }
+
+        .recent_heading h4 {
+            color: #05728f;
+            font-size: 21px;
+            margin: auto;
+        }
+
+        .srch_bar input {
+            border: 1px solid #cdcdcd;
+            border-width: 0 0 1px 0;
+            width: 80%;
+            padding: 2px 0 4px 6px;
+            background: none;
+        }
+
+        .srch_bar .input-group-addon button {
+            background: rgba(0, 0, 0, 0) none repeat scroll 0 0;
+            border: medium none;
+            padding: 0;
+            color: #707070;
+            font-size: 18px;
+        }
+
+        .srch_bar .input-group-addon {
+            margin: 0 0 0 -27px;
+        }
+
+        .chat_ib h5 {
+            font-size: 15px;
+            color: #464646;
+            margin: 0 0 8px 0;
+        }
+
+        .chat_ib h5 span {
+            font-size: 13px;
+            float: right;
+        }
+
+        .chat_ib p {
+            font-size: 14px;
+            color: #989898;
+            margin: auto
+        }
+
+        .chat_img {
+            float: left;
+            width: 11%;
+        }
+
+        .chat_ib {
+            float: left;
+            padding: 0 0 0 15px;
+            width: 88%;
+        }
+
+        .chat_people {
+            overflow: hidden;
+            clear: both;
+        }
+
+        .chat_list {
+            border-bottom: 1px solid #c4c4c4;
+            margin: 0;
+            padding: 18px 16px 10px;
+        }
+
+        .inbox_chat {
+            height: 550px;
+            overflow-y: scroll;
+        }
+
+        .active_chat {
+            background: #ebebeb;
+        }
+
+        .incoming_msg {
+            margin-bottom: 20px;
+        }
+
+        .incoming_msg_img {
+            display: inline-block;
+            width: 6%;
+        }
+
+        .outgoing_msg_img {
+            display: inline-block;
+            float: left;
+            width: 48px;
+            margin: 10px;
+        }
+
+        .received_msg {
+            display: inline-block;
+            padding: 0 0 0 10px;
+            vertical-align: top;
+            width: 92%;
+        }
+
+        .received_withd_msg {
+            background: #660000 none repeat scroll 0 0;
+            border-radius: 3px;
+            color: white;
+            font-size: 18px;
+            margin: 0;
+            padding: 5px 10px 5px 12px;
+            width: 57%;
+        }
+
+        .sent_withd_msg {
+            background: #464646 none repeat scroll 0 0;
+            border-radius: 3px;
+            color: whitesmoke;
+            font-size: 18px;
+            margin: 0;
+            margin-right: 10px;
+            padding: 5px 10px 5px 12px;
+        }
+
+        .sent_withd_msg h5 {
+            color: #989898;
+        }
+
+        .sent_withd_msg p {
+            padding-left: 80px;
+            color: whitesmoke;
+        }
+
+        .sent_withd_msg p img {
+            max-width: 600px;
+            max-height: 600px;
+        }
+
+        .time_date {
+            text-align: right;
+            color: #989898;
+            display: block;
+            font-size: 14px;
+            margin: 8px 0 0;
+            float: right;
+            top: -40px;
+            position: relative;
+        }
+
+        .mesgs {
+            padding: 0px 5px 0 15px;
+            width: 100%;
+        }
+
+        .sent_msg p {
+            font-size: 14px;
+            margin: 0;
+            color: whitesmoke;
+            padding: 5px 10px 5px 12px;
+            width: 100%;
+        }
+
+        .outgoing_msg {
+            overflow: hidden;
+            margin-top: 8px;
+            margin-bottom: 8px;
+            margin-right: 60px;
+            margin-left: 0;
+        }
+
+        .sent_msg {
+            float: right;
+            width: 100%;
+        }
+
+        .input_msg_write input {
+            background: rgba(0, 0, 0, 0) none repeat scroll 0 0;
+            border: medium none;
+            color: #4c4c4c;
+            font-size: 15px;
+            min-height: 48px;
+            width: 100%;
+        }
+
+        .type_msg {
+            border-top: 1px solid #c4c4c4;
+            position: relative;
+        }
+
+        .msg_send_btn {
+            background: #05728f none repeat scroll 0 0;
+            border: medium none;
+            border-radius: 50%;
+            color: #fff;
+            cursor: pointer;
+            font-size: 17px;
+            height: 33px;
+            position: absolute;
+            right: 0;
+            top: 11px;
+            width: 33px;
+        }
+
+        .outgoing_msg.welcome {
+            margin-left: auto;
+            margin-right: auto;
+            margin-bottom: 14px;
+        }
+        .outgoing_msg.welcome .sent_withd_msg {
+            color: white;
+            font-weight: bold;
+            background-color: transparent;
+            padding: 0;
+            margin-right: 0;
+        }
+        .outgoing_msg.welcome .sent_withd_msg p
+        {
+            display: block;
+            text-align: center;
+            width: 100%;
+            color: white;
+            font-weight: bold;
+            background-color: transparent;
+            padding: 12px;
+        }
+
+        .outgoing_msg.self_msg {
+            margin-left: 60px;
+            margin-right: 0;
+        }
+
+        .outgoing_msg.self_msg .sent_withd_msg h5 {
+            display: none;
+        }
+
+        .outgoing_msg.self_msg .sent_withd_msg {
+            min-height: 70px;
+        }
+
+        .outgoing_msg.self_msg .sent_withd_msg,
+        .outgoing_msg.self_msg .sent_withd_msg p
+        {
+            color: white;
+            font-weight: bold;
+            background-color: #19829a;
+        }
+
+        .outgoing_msg.self_msg .sent_withd_msg span.time_date {
+            top: 10px;
+            font-weight: normal;
+            color: #989898;
+            background-color: #19829a;
+        }
+
+        .messaging {
+            padding: 0 0 50px 0;
+        }
+
+        .msg_history {
+            height: 100%;
+            overflow-y: auto;
+        }
+
+        .audio_header {
+            margin-top: 10px;
+            margin-bottom: 10px;
+            float: right;
+        }
+
+        .audio_player {
+            margin: 0;
+        }
+
+        .audio_player audio {
+            height: 30px;
+        }
+
+        h5.titleHeader {
+            color: floralwhite;
+            display: inline;
+            display: inline-block;
+            margin-top: 10px;
+        }
+
+        .msg_entry {
+            margin-top: 14px;
+            text-align: center;
+        }
+
+        textarea.msg_text {
+            vertical-align: top;
+            width: 90%;
+            height: 60px;
+            background-color: #333333;
+            color: whitesmoke;
+            font-size: 14px;
+            font-family: monospace;
+        }
+
+        button.msg_submit {
+            display: none;
+            width: 80px;
+            height: 80px;
+        }
+
+        img.userAvatar {
+            display: inline-block;
+            width:96px;
+        }
+
+        div.bootbox div.modal-body .bootbox-form .bootbox-input-text {
+            width: 350px;
+            float: right;
+            margin-top: 30px;
+        }
+
+        button.nostrConnect {
+            color: white;
+            background-color: #663399;
+        }
+
+        div.bootbox div.modal-body {
+            padding-bottom: 30px;
+        }
+
+        div.bootbox div.modal-body .bootbox-form input.imageUpload {
+            background-image: url('/nopicture');
+            width: 96px;
+            height: 96px;
+            border: solid deepskyblue 2px;
+            float:left;
+        }
+
+        div.bootbox div.modal-body .bootbox-form input.imageUpload.resolved {
+            background-image: none;
+            background-repeat: no-repeat;
+            background-size: 96px 96px;
+            width: 96px;
+            height: 96px;
+            border: solid #663399 2px;
+            float:left;
+        }
+
+        div.identity_display {
+            margin-left: auto;
+            margin-right: auto;
+            margin-top: 10px;
+            font-size: 10px;
+            font-family: monospace;
+            color: #666666;
+            text-align: center;
+        }
+
+        div.identity_display span.pubkey {
+            margin-right: 30px;
+        }
+    </style>
+</head>
+
+<body>
+<div class="container">
+    <div class="titleHeader">
+        <h5 class="titleHeader">Podcasting 2.0</h5>
+        <div class="audio_header">
+            <div class="audio_player text-center">
+                <audio controls>
+                    <source src="https://listen.noagendastream.com/noagenda?type=.mp3" type="audio/mpeg">
+                    Your browser does not support the audio element.
+                </audio>
+            </div>
+        </div>
+    </div>
+    <div class="messaging">
+        <div class="inbox_msg">
+
+            <div class="mesgs">
+                <div class="msg_history"></div>
+            </div>
+        </div>
+        <div class="msg_entry">
+            <textarea class="msg_text" value="" placeholder="Type a message here and hit enter..."></textarea>
+            <button class="msg_submit" value="Send">Enter</button>
+        </div>
+        <div class="identity_display">
+            <span class="pubkey"></span> <span class="privkey"></span>
+        </div>
+    </div>
+</div>
+</body>
+</html>
