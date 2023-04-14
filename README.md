@@ -1,5 +1,5 @@
 # mkultra
-An live chat server for podcasters with throwaway, carryout or BYO identities.
+A live chat server for podcasters with throwaway, carryout or BYO identities.
 
 This software is alpha.  Do not expect the instructions to make sense at this stage.
 
