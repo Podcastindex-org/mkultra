@@ -1,0 +1,24 @@
+[package]
+name = "mkultra-web"
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+futures = { version = "0.3", default-features = false, features = ["async-await"] }
+hyper = { version = "0.14", features = ["full"] }
+tokio = { version = "1.27", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+route-recognizer = "0.2.0"
+bytes = "0.6.0"
+async-trait = "0.1"
+url = "2.3"
+rusqlite = "0.29.0"
+drop-root = "0.1.1"
+percent-encoding = "2.2"
+prost = "0.11.8"
+websocket = "0.26.5"
+openssl = { version = "0.10", features = ["vendored"] }
+mkultra = { path = '../mkultra'}
