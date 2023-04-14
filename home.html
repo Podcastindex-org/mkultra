@@ -10,13 +10,23 @@
     <script src="//cdnjs.cloudflare.com/ajax/libs/bootbox.js/5.5.2/bootbox.min.js"></script>
     <script src="/utils.js?v=6"></script>
     <script src="/nostr.js?v=6"></script>
-    <script src="/home.js?v=85"></script>
+    <script src="/home.js?v=109"></script>
 
     <!-- Styles -->
     <link href="//maxcdn.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css" rel="stylesheet" id="bootstrap-css">
     <link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.css" type="text/css"
           rel="stylesheet">
     <style>
+        @media (max-width: 768px) {
+            button.msg_submit {
+                display: inline-block;
+            }
+
+            .time_date {
+                display: none;
+            }
+        }
+
         html, body {
             background-color: #1b1e21;
         }
@@ -290,6 +300,7 @@
             margin-right: auto;
             margin-bottom: 14px;
         }
+
         .outgoing_msg.welcome .sent_withd_msg {
             color: white;
             font-weight: bold;
@@ -297,8 +308,8 @@
             padding: 0;
             margin-right: 0;
         }
-        .outgoing_msg.welcome .sent_withd_msg p
-        {
+
+        .outgoing_msg.welcome .sent_withd_msg p {
             display: block;
             text-align: center;
             width: 100%;
@@ -326,8 +337,7 @@
         }
 
         .outgoing_msg.self_msg .sent_withd_msg,
-        .outgoing_msg.self_msg .sent_withd_msg p
-        {
+        .outgoing_msg.self_msg .sent_withd_msg p {
             color: white;
             font-weight: bold;
             background-color: #19829a;
@@ -379,21 +389,24 @@
             vertical-align: top;
             width: 90%;
             height: 60px;
-            background-color: #333333;
+            background-color: black;
             color: whitesmoke;
             font-size: 14px;
             font-family: monospace;
         }
 
         button.msg_submit {
-            display: none;
             width: 80px;
-            height: 80px;
+            height: 60px;
+            margin-top: 0;
+            margin-bottom: 0;
+            background-color: #464646;
+            color: whitesmoke;
         }
 
         img.userAvatar {
             display: inline-block;
-            width:96px;
+            width: 96px;
         }
 
         img.userAvatarHeader {
@@ -407,6 +420,7 @@
 
         div.bootbox div.modal-body .bootbox-form .bootbox-input-text {
             width: 350px;
+            max-width: 90%;
             float: right;
             margin-top: 30px;
         }
@@ -427,7 +441,7 @@
             width: 96px;
             height: 96px;
             border: solid deepskyblue 2px;
-            float:left;
+            float: left;
         }
 
         div.bootbox div.modal-body .bootbox-form input.imageUpload.resolved {
@@ -437,10 +451,11 @@
             width: 96px;
             height: 96px;
             border: solid #663399 2px;
-            float:left;
+            float: left;
         }
 
         div.identity_display {
+            overflow-x: clip;
             margin-left: auto;
             margin-right: auto;
             margin-top: 10px;
@@ -453,13 +468,30 @@
         div.identity_display span.pubkey {
             margin-right: 30px;
         }
+
+        ul.popupKeyDisplay li {
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        div.bootbox div.modal-body .bootbox-form .bootbox-input-text.nostrPrivateKeyInput {
+            display: none;
+            width: 100%;
+            max-width: 100%;
+            margin-top: 30px;
+        }
     </style>
 </head>
 
 <body>
 <div class="container">
     <div class="titleHeader">
-        <h5 class="titleHeader">Podcasting 2.0 <img class="userAvatarHeader" src="/nopicture"></h5>
+        <!-- TODO: The title should flow from handlebars so it's settable from CLI -->
+            <h5 class="titleHeader">Board Room <a id="editProfile">
+                <img class="userAvatarHeader" src="/nopicture">
+            </a>
+            </h5>
+            <input id="isEphemeral" type="checkbox" checked="checked" title="I want my posts to be ephemeral">
         <div class="audio_header">
             <div class="audio_player text-center">
                 <audio controls>
@@ -478,7 +510,7 @@
         </div>
         <div class="msg_entry">
             <textarea class="msg_text" value="" placeholder="Type a message here and hit enter..."></textarea>
-            <button class="msg_submit" value="Send">Enter</button>
+            <button class="msg_submit" value="Send">&#x21B2; Enter</button>
         </div>
         <div class="identity_display">
             <span class="pubkey"></span> <span class="privkey"></span>

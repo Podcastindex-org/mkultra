@@ -1,6 +1,7 @@
 $(document).ready(function () {
     let messages = $('div.mesgs');
     let inbox = messages.find('div.msg_history');
+    let isEphemeral = $('input#isEphemeral');
     let appIconUrlBase = 'https://podcastindex.org/api/images/';
     let pewAudioFile = '/pew.mp3';
     let pewAudio = new Audio(pewAudioFile);
@@ -8,6 +9,9 @@ $(document).ready(function () {
     const chat_id = urlParams.get('cid');
     var intvlChatPolling = null;
     var connection = null;
+    var lgHasSentMetadata = false;
+    var lgNostrWaitCycles = 0;
+    var lgLoggedInWithNostr = false;
 
     //Connect to some nostr relays
     const nostrRelayPool = new NostrTools.SimplePool();
@@ -31,10 +35,14 @@ $(document).ready(function () {
             title: "Who do you want to be?",
             closeButton: false,
             message: '<form class="bootbox-form">' +
-                '<input class="bootbox-input form-control imageUpload">' +
+                '<input class="bootbox-input form-control imageUpload" disabled>' +
                 '<input class="bootbox-input bootbox-input-text form-control" type="text" placeholder="Display Name">' +
                 '<div style="clear:both">&nbsp;</div>' +
                 '<input class="imageUploadFilePicker" type="file">' +
+                '<br>' +
+                '<input class="bootbox-input bootbox-input-text form-control nostrPrivateKeyInput" ' +
+                'type="text" ' +
+                'placeholder="nsec1... paste nostr private key here">' +
                 '</form>',
             buttons: {
                 Create: {
@@ -63,11 +71,41 @@ $(document).ready(function () {
                         userProfileObject.website = userProfile.website || "";
 
                         //If there isn't a pubkey in the user profile object, create one
-                        //and show it to the user so they can
+                        //and show it to the user so they can save it
                         userProfileObject.privkey = NostrTools.generatePrivateKey();
                         userProfileObject.pubkey = NostrTools.getPublicKey(userProfileObject.privkey);
-                        postNostrMetadata(userProfileObject, nostrRelayPool, nostrRelays).await;
 
+                        //See if the user wants their profile sent to Nostr
+                        if(!lgLoggedInWithNostr) {
+                            bootbox.confirm({
+                                title: 'Identity created!',
+                                message: '<p>Your new identity has been created and save in your browser. Hang on to these' +
+                                    ' keys in case you ever need to recover it:</p>' +
+                                    '<ul class="popupKeyDisplay">' +
+                                    '<li>Public: '+NostrTools.nip19.npubEncode(userProfileObject.pubkey)+'</li>' +
+                                    '<li>Private: '+NostrTools.nip19.nsecEncode(userProfileObject.privkey)+'</li>' +
+                                    '</ul>' +
+                                    '<p>Do you want to inform the Nostr relay network of your new identity so you can take ' +
+                                    'it with you to other places?</p>',
+                                buttons: {
+                                    cancel: {
+                                        label: '<i class="fa fa-times"></i> No'
+                                    },
+                                    confirm: {
+                                        label: '<i class="fa fa-check"></i> Yes',
+                                        className: 'nostrConnect'
+                                    }
+                                },
+                                callback: function (result) {
+                                    console.log('This was logged in the callback: ' + result);
+                                    if(result) {
+                                        postNostrMetadata(userProfileObject, nostrRelayPool, nostrRelays).await;
+                                    }
+                                }
+                            });
+                        }
+
+                        //Show the identity keys on the page
                         displayIdentity(userProfileObject);
 
                         //Save the identity we are using
@@ -75,7 +113,7 @@ $(document).ready(function () {
                         userProfile = userProfileObject;
                         $('button.msg_submit').prop('disabled', false);
 
-                        connectWebSocket("Just entered the room.");
+                        connectWebSocket("[Just entered the room.]");
 
                         return true;
                     }
@@ -84,6 +122,7 @@ $(document).ready(function () {
                     label: "Nostr",
                     className: "nostrConnect",
                     callback: function () {
+                        $('div.bootbox').find('button.nostrConnect').empty().html('<i class="fa fa-spin fa-spinner">');
                         waitForNostr();
                         return false;
                     }
@@ -91,11 +130,19 @@ $(document).ready(function () {
             }
         });
 
-        $(document).on('click', 'input.imageUpload', function() {
-            $('input.imageUpload').click();
-        });
         $(document).on('change', 'input.imageUploadFilePicker', function() {
             let imagedata = encodeImageFileAsURL($(this)[0]);
+        });
+        $(document).on('change keyup', 'input.nostrPrivateKeyInput', function() {
+            let enteredString = $(this).val();
+            if (enteredString.indexOf("nsec") === 0) {
+                let {type, data} = NostrTools.nip19.decode(enteredString);
+                console.log(data);
+                userProfile.privkey = data;
+                userProfile.pubkey = NostrTools.getPublicKey(data);
+                getNostrPubkey(nostrRelayPool, nostrRelays);
+                $(this).hide();
+            }
         });
     } else {
         userProfile = JSON.parse(userProfile);
@@ -119,14 +166,24 @@ $(document).ready(function () {
     //if the object becomes defined
     function waitForNostr() {
         console.log("Wait for nostr");
+        lgNostrWaitCycles++;
         if (typeof window.nostr !== "undefined") {
             //variable exists, do what you want
             getNostrPubkey(nostrRelayPool, nostrRelays);
         } else {
-            setTimeout(waitForNostr, 250);
+            if(lgNostrWaitCycles > 8) {
+                allowPrivateKeyInput();
+            } else {
+                setTimeout(waitForNostr, 250);
+            }
         }
     }
 
+    //Nostr browser extension isn't installed so drop back to private key entry
+    function allowPrivateKeyInput() {
+        $('div.bootbox').find('button.nostrConnect').empty().text('Nostr');
+        $('div.bootbox div.modal-body div.bootbox-body .bootbox-form .bootbox-input.nostrPrivateKeyInput').show();
+    }
 
     //Send a set_metadata event to the nostr relays for this new identity
     async function postNostrMetadata(profileData, pool, relays) {
@@ -152,6 +209,7 @@ $(document).ready(function () {
         let pubs = pool.publish(relays, event)
         pubs.on('ok', () => {
             console.log(`relay has accepted our set_metadat event`)
+            lgHasSentMetadata = true;
         })
         pubs.on('failed', reason => {
             console.log(`failed to publish set_metadata to relay: ${reason}`)
@@ -159,7 +217,10 @@ $(document).ready(function () {
     }
 
     async function getNostrPubkey(pool, relays) {
-        userProfile.pubkey = await window.nostr.getPublicKey();
+        if(typeof userProfile.pubkey === "undefined" || userProfile.pubkey == "") {
+            userProfile.pubkey = await window.nostr.getPublicKey();
+        }
+        $('div.bootbox').find('button.nostrConnect').empty().html('<i class="fa fa-spin fa-spinner">');
         console.log(userProfile.pubkey);
 
         let sub = pool.sub(
@@ -195,6 +256,7 @@ $(document).ready(function () {
             $('div.bootbox').find('button.nostrConnect').remove();
             $('div.bootbox').find('input.imageUploadFilePicker').remove();
             $('div.bootbox').find('button.createButton').text("Login");
+            lgLoggedInWithNostr = true;
         })
         let events = await pool.list(relays, [{kinds: [0]}]);
         let event = await pool.get(relays, {authors: [userProfile.pubkey]});
@@ -277,10 +339,15 @@ $(document).ready(function () {
 
         connection.send(JSON.stringify(params));
 
-        postNostrMessage(userProfile, msgText, nostrRelayPool, nostrRelays);
-
         $('textarea.msg_text').val('');
 
+        //Only send posts to Nostr when the ephemeral control checkbox is unchecked
+        if(!isEphemeral.is(":checked")) {
+            if(!lgHasSentMetadata) {
+                postNostrMetadata(userProfile, nostrRelayPool, nostrRelays).await;
+            }
+            postNostrMessage(userProfile, msgText, nostrRelayPool, nostrRelays);
+        }
     }
 
     //Websocket testing
@@ -396,7 +463,9 @@ $(document).ready(function () {
                 NostrTools.nip19.nsecEncode(profileObject.privkey)
             );
         }
-        $('img.userAvatarHeader').attr('src', profileObject.picture);
+        if(typeof profileObject.picture !== "undefined" && profileObject.picture != "") {
+            $('img.userAvatarHeader').attr('src', profileObject.picture);
+        }
     }
 
     //Update timestamps
@@ -408,6 +477,30 @@ $(document).ready(function () {
             $(this).html(prettyDate(timestamp));
         });
     }
+
+    //The profile edit modal
+    $(document).on('click', 'a#editProfile', function() {
+        bootbox.confirm({
+            title: 'Lougout?',
+            message: 'Would you like to log out of your current identity? Be sure you saved your keys.',
+            buttons: {
+                cancel: {
+                    label: '<i class="fa fa-times"></i> No'
+                },
+                confirm: {
+                    label: '<i class="fa fa-check"></i> Yes',
+                    className: 'btn-danger'
+                }
+            },
+            callback: function (result) {
+                console.log('This was logged in the callback: ' + result);
+                if(result) {
+                    localStorage.removeItem('userProfile');
+                    location.reload();
+                }
+            }
+        });
+    });
 
     setInterval(function () {
         updateTimeStamps();
