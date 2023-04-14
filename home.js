@@ -68,6 +68,8 @@ $(document).ready(function () {
                         userProfileObject.pubkey = NostrTools.getPublicKey(userProfileObject.privkey);
                         postNostrMetadata(userProfileObject, nostrRelayPool, nostrRelays).await;
 
+                        displayIdentity(userProfileObject);
+
                         //Save the identity we are using
                         localStorage.setItem('userProfile', JSON.stringify(userProfileObject));
                         userProfile = userProfileObject;
@@ -97,6 +99,7 @@ $(document).ready(function () {
         });
     } else {
         userProfile = JSON.parse(userProfile);
+        displayIdentity(userProfile);
         $('button.msg_submit').prop('disabled', false);
     }
 
@@ -197,6 +200,35 @@ $(document).ready(function () {
         let event = await pool.get(relays, {authors: [userProfile.pubkey]});
     }
 
+    //Send a new post to nostr
+    async function postNostrMessage(profileData, message, pool, relays) {
+        nostrMetadata = {};
+        nostrMetadata.name = profileData.name;
+        nostrMetadata.display_name = profileData.display_name;
+        nostrMetadata.about = profileData.about;
+        nostrMetadata.picture = profileData.picture;
+        nostrMetadata.banner = profileData.banner;
+        nostrMetadata.website = profileData.website;
+
+        let event = {
+            kind: 1,
+            created_at: Math.floor(Date.now() / 1000),
+            tags: [],
+            content: message + "#mkutesting",
+            pubkey: profileData.pubkey
+        }
+
+        event.id = NostrTools.getEventHash(event)
+        event.sig = NostrTools.signEvent(event, profileData.privkey)
+
+        let pubs = pool.publish(relays, event)
+        pubs.on('ok', () => {
+            console.log(`relay has accepted our message posting event`)
+        })
+        pubs.on('failed', reason => {
+            console.log(`failed to publish message to relay: ${reason}`)
+        })
+    }
 
     //_via: https://stackoverflow.com/questions/1349404/generate-random-string-characters-in-javascript?answertab=votes#tab-top
     // dec2hex :: Integer -> String
@@ -225,7 +257,7 @@ $(document).ready(function () {
     });
 
 
-    function submitChatMessage(textMessage) {
+    function submitChatMessage(textMessage, withNostr) {
         let msgText = textMessage || $('textarea.msg_text').val();
         let lastMsgId = $('div.outgoing_msg:last').data('msgid');
         if (typeof lastMsgId === "undefined") {
@@ -244,6 +276,8 @@ $(document).ready(function () {
         };
 
         connection.send(JSON.stringify(params));
+
+        postNostrMessage(userProfile, msgText, nostrRelayPool, nostrRelays);
 
         $('textarea.msg_text').val('');
 
@@ -351,15 +385,18 @@ $(document).ready(function () {
     connectWebSocket();
 
     //Show the identity of the logged in user at the bottom
-    if(userProfile.pubkey != "") {
-        $('div.identity_display span.pubkey').text(
-            NostrTools.nip19.npubEncode(userProfile.pubkey)
-        );
-    }
-    if(userProfile.privkey != "") {
-        $('div.identity_display span.privkey').text(
-            NostrTools.nip19.nsecEncode(userProfile.privkey)
-        );
+    function displayIdentity(profileObject) {
+        if(userProfile.pubkey != "") {
+            $('div.identity_display span.pubkey').text(
+                NostrTools.nip19.npubEncode(profileObject.pubkey)
+            );
+        }
+        if(userProfile.privkey != "") {
+            $('div.identity_display span.privkey').text(
+                NostrTools.nip19.nsecEncode(profileObject.privkey)
+            );
+        }
+        $('img.userAvatarHeader').attr('src', profileObject.picture);
     }
 
     //Update timestamps
@@ -375,6 +412,4 @@ $(document).ready(function () {
     setInterval(function () {
         updateTimeStamps();
     }, 59000);
-
-
 });

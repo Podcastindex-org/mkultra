@@ -10,7 +10,7 @@
     <script src="//cdnjs.cloudflare.com/ajax/libs/bootbox.js/5.5.2/bootbox.min.js"></script>
     <script src="/utils.js?v=6"></script>
     <script src="/nostr.js?v=6"></script>
-    <script src="/home.js?v=80"></script>
+    <script src="/home.js?v=84"></script>
 
     <!-- Styles -->
     <link href="//maxcdn.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css" rel="stylesheet" id="bootstrap-css">
@@ -313,12 +313,16 @@
             margin-right: 0;
         }
 
+        .outgoing_msg.self_msg .outgoing_msg_img {
+            display: none;
+        }
+
         .outgoing_msg.self_msg .sent_withd_msg h5 {
             display: none;
         }
 
         .outgoing_msg.self_msg .sent_withd_msg {
-            min-height: 70px;
+            min-height: 40px;
         }
 
         .outgoing_msg.self_msg .sent_withd_msg,
@@ -330,7 +334,7 @@
         }
 
         .outgoing_msg.self_msg .sent_withd_msg span.time_date {
-            top: 10px;
+            top: -7px;
             font-weight: normal;
             color: #989898;
             background-color: #19829a;
@@ -392,6 +396,15 @@
             width:96px;
         }
 
+        img.userAvatarHeader {
+            display: inline-block;
+            width: 36px;
+            height: 36px;
+            background-image: none;
+            background-repeat: no-repeat;
+            background-size: 36px 36px;
+        }
+
         div.bootbox div.modal-body .bootbox-form .bootbox-input-text {
             width: 350px;
             float: right;
@@ -417,8 +430,6 @@
 
         div.bootbox div.modal-body .bootbox-form input.imageUpload.resolved {
             background-image: none;
-            background-repeat: no-repeat;
-            background-size: 96px 96px;
             width: 96px;
             height: 96px;
             border: solid #663399 2px;
@@ -444,7 +455,7 @@
 <body>
 <div class="container">
     <div class="titleHeader">
-        <h5 class="titleHeader">Podcasting 2.0</h5>
+        <h5 class="titleHeader">Podcasting 2.0 <img class="userAvatarHeader" src="/nopicture"></h5>
         <div class="audio_header">
             <div class="audio_player text-center">
                 <audio controls>
