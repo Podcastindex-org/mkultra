@@ -47,7 +47,11 @@ async fn main() {
     let arg_port = &args[1];
     let arg_chatid = &args[2];
 
+    //TODO: these must handle errors better
     //Validate the passed in chat id and clear anything else from the db
+    if mkultra::init_database().is_err() {
+        eprintln!("Error initializing the database file.");
+    }
     if mkultra::init_chat_session_with_id(arg_chatid).is_err() {
         eprintln!("Error initializing chat: [{}] in the database.", arg_chatid);
     }
@@ -62,9 +66,8 @@ async fn main() {
     router.get("/nopicture", Box::new(handler::nopicture));
     router.get("/utils.js", Box::new(handler::utilsjs));
     router.get("/nostr.js", Box::new(handler::nostrjs));
-    router.get("/boosts", Box::new(handler::boosts));
     router.get("/favicon.ico", Box::new(handler::favicon));
-    router.post("/comment", Box::new(handler::comment));
+    //router.post("/comment", Box::new(handler::comment));
     router.get("/context", Box::new(handler::context));
 
     let shared_router = Arc::new(router);

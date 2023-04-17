@@ -45,6 +45,7 @@ impl Router {
             .add(path, handler)
     }
 
+    #[allow(dead_code)]
     pub fn post(&mut self, path: &str, handler: Box<dyn Handler>) {
         self.method_map
             .entry(Method::POST)

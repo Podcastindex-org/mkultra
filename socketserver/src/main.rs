@@ -92,7 +92,7 @@ async fn handle_connection(peer_map: PeerMap, raw_stream: TcpStream, addr: Socke
 
     let broadcast_incoming = incoming.try_for_each(|msg| {
         let msg_in = msg.to_text().unwrap();
-        println!("Received a message from {}: {}", addr, msg_in);
+        println!("Received a message from {}", addr);
         let peers = peer_map.lock().unwrap();
 
         //Add a comment if it's not blank
@@ -116,9 +116,7 @@ async fn handle_connection(peer_map: PeerMap, raw_stream: TcpStream, addr: Socke
 
                 //Get the comments
                 let comments = mkultra::get_comments_by_chat_id(&chat_id, msg_id).unwrap();
-                println!("{:#?}", comments);
                 let json_comments = serde_json::to_string(&comments).unwrap();
-                println!("{:#?}", json_comments);
 
                 // We want to broadcast the message to everyone except ourselves.
                 let broadcast_recipients =

@@ -16,11 +16,18 @@ $(document).ready(function () {
     //Connect to some nostr relays
     const nostrRelayPool = new NostrTools.SimplePool();
     let nostrRelays = [
+        'wss://relay.mostr.pub',
+        'wss://nostr.wine',
+        'wss://welcome.nostr.wine',
+        'wss://relay.current.fyi',
         'wss://relay.damus.io',
         'wss://relay.snort.social',
         'wss://relay.nostr.info',
         'wss://nos.lol',
-        'wss://eden.nostr.land'
+        'wss://eden.nostr.land',
+        'wss://brb.io',
+        'wss://offchain.pub',
+        'wss://nostr.orangepill.dev'
     ];
 
     //Get or build a user identity
@@ -146,6 +153,7 @@ $(document).ready(function () {
         });
     } else {
         userProfile = JSON.parse(userProfile);
+        getNostrPubkey(nostrRelayPool, nostrRelays);
         displayIdentity(userProfile);
         $('button.msg_submit').prop('disabled', false);
     }
@@ -208,7 +216,7 @@ $(document).ready(function () {
 
         let pubs = pool.publish(relays, event)
         pubs.on('ok', () => {
-            console.log(`relay has accepted our set_metadat event`)
+            console.log(`relay has accepted our set_metadata event`)
             lgHasSentMetadata = true;
         })
         pubs.on('failed', reason => {
@@ -239,9 +247,13 @@ $(document).ready(function () {
 
             //Hang on to the user profile data
             nostrUserProfile = JSON.parse(event.content);
+            console.log("Nostr Profile", nostrUserProfile);
             userProfile.name = nostrUserProfile.name;
             userProfile.about = nostrUserProfile.about;
             userProfile.picture = nostrUserProfile.picture;
+
+            //Update the displayed identity keys
+            displayIdentity(userProfile);
 
             //If the identity modal dialog is currently on-screen, take appropriate action
             //to fill in it's details with this user's nostr info
@@ -276,7 +288,7 @@ $(document).ready(function () {
             kind: 1,
             created_at: Math.floor(Date.now() / 1000),
             tags: [],
-            content: message + "#mkutesting",
+            content: message + " #mkutesting",
             pubkey: profileData.pubkey
         }
 
@@ -284,8 +296,8 @@ $(document).ready(function () {
         event.sig = NostrTools.signEvent(event, profileData.privkey)
 
         let pubs = pool.publish(relays, event)
-        pubs.on('ok', () => {
-            console.log(`relay has accepted our message posting event`)
+        pubs.on('ok', (relay) => {
+            console.log(`relay: [${relay}] has accepted our message posting event`)
         })
         pubs.on('failed', reason => {
             console.log(`failed to publish message to relay: ${reason}`)
@@ -334,7 +346,8 @@ $(document).ready(function () {
             "user_name": userProfile.name,
             "comment": msgText,
             "chat_id": chat_id,
-            "picture": userProfile.picture
+            "picture": userProfile.picture,
+            "msgtype": 1
         };
 
         connection.send(JSON.stringify(params));
@@ -391,31 +404,42 @@ $(document).ready(function () {
                             someNew = true;
                         }
                         let message = element.comment || "";
+                        let msgtype = element.msgtype || 1;
                         let userName = element.user_name || "";
                         let userPicture = element.picture || "";
                         let dateTime = new Date(element.time * 1000).toISOString();
                         var msgClassName = "";
 
                         //If this is the top welcome post
-                        if(element.id == 1 && element.user_name == "" && element.comment == "Welcome!") {
+                        if(msgtype == -1) {
                             msgClassName = "welcome";
                         }
 
                         //Call out our own messages a bit visually different
+                        var nameDisplay = '      <h5>' + userName + ':</h5>&nbsp;';
                         if(element.user_id == userProfile.id) {
                             msgClassName += " self_msg";
+                            var nameDisplay = "";
                         }
 
                         //Write the message to the screen
                         inbox.append('' +
-                            '<div class="outgoing_msg message '+msgClassName+'" data-msgid="' + element.id + '">' +
-                            '<div class="sent_msg"><div class="outgoing_msg_img"><img src="'+userPicture+'"></div>' +
-                            '<div class="sent_withd_msg"><h5>' + userName + '</h5>' +
-                            '<span class="time_date" data-timestamp="' + dateTime + '">' +
-                            prettyDate(dateTime) + '</span>' +
-                            '<p>' + message + '</p>' +
-                            '</div></div></div>');
-                        inbox.animate({scrollTop: 999999999});
+                            '<div class="outgoing_msg message msgtype'+msgtype+' '+msgClassName+'" data-msgid="' + element.id + '">' +
+                            '  <div class="sent_msg">' +
+                            '    <div class="outgoing_msg_img">' +
+                            '      <img src="'+userPicture+'">' +
+                            '    </div>' +
+                            '    <div class="sent_withd_msg">' +
+                                   nameDisplay +
+                            '      <span class="time_date" data-timestamp="' + dateTime + '">' +
+                                      prettyDate(dateTime) + '' +
+                            '      </span>' +
+                            '      <span class="messageText">' + message + '</span>' +
+                            '    </div>' +
+                            '  </div>' +
+                            '</div>');
+
+                        inbox.scrollTop(Number.MAX_SAFE_INTEGER);
                     }
                 });
             }
@@ -442,7 +466,8 @@ $(document).ready(function () {
                 "user_name": userProfile.name,
                 "comment": "",
                 "chat_id": chat_id,
-                "picture": userProfile.picture
+                "picture": userProfile.picture,
+                "msgtype": 1,
             };
 
             conn.send(JSON.stringify(params));

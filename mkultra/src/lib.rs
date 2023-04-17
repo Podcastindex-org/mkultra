@@ -3,6 +3,8 @@ use std::error::Error;
 use std::fmt;
 use std::time::{SystemTime};
 use serde::{Deserialize, Serialize};
+use ammonia::Builder;
+use maplit::{hashset, hashmap};
 
 const SQLITE_FILE_COMMENTS: &str = "comments.db";
 
@@ -15,12 +17,21 @@ pub struct Comment {
     pub comment: String,
     pub chat_id: String,
     pub picture: String,
+    pub msgtype: i32,
 }
 
 impl Comment {
     //Removes unsafe html interpretable characters from displayable strings
     pub fn escape_for_html( field: String) -> String {
-        return field.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+        let tags = hashset!["img"];
+        let tag_attributes = hashmap!["img" => hashset!["src"]];
+        let tag_blacklist = hashset!["script", "style"];
+        return Builder::new()
+            .tags(tags)
+            .tag_attributes(tag_attributes)
+            .clean_content_tags(tag_blacklist)
+            .clean(&field)
+            .to_string();
     }
 
     //Removes unsafe html interpretable characters from displayable strings
@@ -44,6 +55,46 @@ impl fmt::Display for HydraError {
 impl Error for HydraError {}
 
 
+//Make sure the database exists and is the correct schema
+pub fn init_database() -> Result<bool, Box<dyn Error>> {
+    let conn = Connection::open(SQLITE_FILE_COMMENTS)?;
+
+    //Remove all previous chat id's since each run is clean
+    if let Err(e) = conn.execute("CREATE TABLE IF NOT EXISTS comments (created INTEGER)", params![]) {
+        eprintln!("{}", e);
+    }
+    if let Err(e) = conn.execute("ALTER TABLE comments ADD COLUMN created INTEGER", params![]) {
+        eprintln!("{}", e);
+    }
+    if let Err(e) = conn.execute("ALTER TABLE comments ADD COLUMN uid TEXT", params![]) {
+        eprintln!("{}", e);
+    }
+    if let Err(e) = conn.execute("ALTER TABLE comments ADD COLUMN comment TEXT", params![]) {
+        eprintln!("{}", e);
+    }
+    if let Err(e) = conn.execute("ALTER TABLE comments ADD COLUMN source INTEGER", params![]) {
+        eprintln!("{}", e);
+    }
+    if let Err(e) = conn.execute("ALTER TABLE comments ADD COLUMN target TEXT", params![]) {
+        eprintln!("{}", e);
+    }
+    if let Err(e) = conn.execute("ALTER TABLE comments ADD COLUMN uname TEXT", params![]) {
+        eprintln!("{}", e);
+    }
+    if let Err(e) = conn.execute("ALTER TABLE comments ADD COLUMN cid TEXT", params![]) {
+        eprintln!("{}", e);
+    }
+    if let Err(e) = conn.execute("ALTER TABLE comments ADD COLUMN picture TEXT", params![]) {
+        eprintln!("{}", e);
+    }
+    if let Err(e) = conn.execute("ALTER TABLE comments ADD COLUMN msgtype INTEGER", params![]) {
+        eprintln!("{}", e);
+    }
+
+
+    Ok(true)
+}
+
 //Add a comment to the database for a certain chat session
 pub fn init_chat_session_with_id(chat_id: &str) -> Result<bool, Box<dyn Error>> {
     let conn = Connection::open(SQLITE_FILE_COMMENTS)?;
@@ -60,7 +111,7 @@ pub fn init_chat_session_with_id(chat_id: &str) -> Result<bool, Box<dyn Error>> 
         }
         Err(_e) => {
             //Remove all previous chat id's since each run is clean
-            match conn.execute("DELETE FROM comments", params![])
+            match conn.execute("DELETE FROM comments WHERE cid != ?1", params![chat_id])
             {
                 Ok(_) => {
                     println!("Old chat sessions removed.");
@@ -72,15 +123,16 @@ pub fn init_chat_session_with_id(chat_id: &str) -> Result<bool, Box<dyn Error>> 
             }
 
             //Create an initial starting comment with this chat id
-            match conn.execute("INSERT INTO comments (created, uid, comment, uname, cid, picture) \
-                                              VALUES (?1,      ?2,  ?3,      ?4,    ?5,  ?6)",
+            match conn.execute("INSERT INTO comments (created, uid, comment, uname, cid, picture, msgtype) \
+                                              VALUES (?1,      ?2,  ?3,      ?4,    ?5,  ?6,      ?7)",
                                params![
                                    timestamp,
                                    0,
                                    "Welcome!",
                                    "",
                                    chat_id,
-                                   ""
+                                   "",
+                                   -1
                                ])
             {
                 Ok(_) => {
@@ -93,8 +145,6 @@ pub fn init_chat_session_with_id(chat_id: &str) -> Result<bool, Box<dyn Error>> 
             }
         }
     }
-
-
 }
 
 
@@ -102,15 +152,23 @@ pub fn init_chat_session_with_id(chat_id: &str) -> Result<bool, Box<dyn Error>> 
 pub fn add_comment_to_db(comment: Comment) -> Result<bool, Box<dyn Error>> {
     let conn = Connection::open(SQLITE_FILE_COMMENTS)?;
 
-    match conn.execute("INSERT INTO comments (created, uid, comment, uname, cid, picture) \
-                                      VALUES (?1,      ?2,  ?3,      ?4,    ?5,  ?6)",
+    let comment_clean = Comment {
+        comment: Comment::escape_for_html(comment.comment),
+        user_name: Comment::escape_for_html(comment.user_name),
+        picture: Comment::escape_for_html(comment.picture),
+        ..comment
+    };
+
+    match conn.execute("INSERT INTO comments (created, uid, comment, uname, cid, picture, msgtype) \
+                                      VALUES (?1,      ?2,  ?3,      ?4,    ?5,  ?6,      ?7     )",
                        params![
-                           comment.time,
-                           comment.user_id,
-                           comment.comment,
-                           comment.user_name,
-                           comment.chat_id,
-                           comment.picture
+                           comment_clean.time,
+                           comment_clean.user_id,
+                           comment_clean.comment,
+                           comment_clean.user_name,
+                           comment_clean.chat_id,
+                           comment_clean.picture,
+                           comment_clean.msgtype,
                        ]
     ) {
         Ok(_) => {
@@ -118,7 +176,7 @@ pub fn add_comment_to_db(comment: Comment) -> Result<bool, Box<dyn Error>> {
         }
         Err(e) => {
             eprintln!("{}", e);
-            return Err(Box::new(HydraError(format!("Failed to add comment: [{}].", comment.user_id).into())))
+            return Err(Box::new(HydraError(format!("Failed to add comment: [{}].", comment_clean.user_id).into())))
         }
     }
 }
@@ -166,8 +224,9 @@ pub fn get_comments_by_chat_id(chat_id: &str, msgid: u64) -> Result<Vec<Comment>
                                         comment, \
                                         uname, \
                                         cid, \
-                                        picture \
-                                   FROM (SELECT rowid, created, uid, comment, uname, cid, picture \
+                                        picture,\
+                                        msgtype \
+                                   FROM (SELECT rowid, created, uid, comment, uname, cid, picture, msgtype \
                                            FROM comments WHERE cid = :chat_id \
                                             AND rowid > :msgid \
                                          ORDER BY rowid DESC \
@@ -177,7 +236,7 @@ pub fn get_comments_by_chat_id(chat_id: &str, msgid: u64) -> Result<Vec<Comment>
     let rows = stmt.query_map(
         &[  (":chat_id", chat_id),
             (":msgid", msg_id.as_str()),
-            (":limit", "100")
+            (":limit", "25")
         ],
         |row|
     {
@@ -189,21 +248,14 @@ pub fn get_comments_by_chat_id(chat_id: &str, msgid: u64) -> Result<Vec<Comment>
             user_name: row.get(4)?,
             chat_id: row.get(5)?,
             picture: row.get(6)?,
+            msgtype: row.get(7)?,
         })
     }).unwrap();
 
     //Parse the results
     for row in rows {
         let comment: Comment = row.unwrap();
-
-        let comment_clean = Comment {
-            comment: Comment::escape_for_html(comment.comment),
-            user_name: Comment::escape_for_html(comment.user_name),
-            picture: Comment::escape_for_html(comment.picture),
-            ..comment
-        };
-
-        comms.push(comment_clean);
+        comms.push(comment);
     }
 
     Ok(comms)

@@ -2,7 +2,7 @@
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta http-equiv="Content-Security-Policy"
-          content="script-src cdnjs.cloudflare.com maxcdn.bootstrapcdn.com 'self';">
+          content="script-src cdnjs.cloudflare.com maxcdn.bootstrapcdn.com 'self'; img-src * data:;">
 
     <!-- Scripts -->
     <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
@@ -10,13 +10,13 @@
     <script src="//cdnjs.cloudflare.com/ajax/libs/bootbox.js/5.5.2/bootbox.min.js"></script>
     <script src="/utils.js?v=6"></script>
     <script src="/nostr.js?v=6"></script>
-    <script src="/home.js?v=109"></script>
+    <script src="/home.js?v=132"></script>
 
     <!-- Styles -->
     <link href="//maxcdn.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css" rel="stylesheet" id="bootstrap-css">
     <link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.css" type="text/css"
           rel="stylesheet">
-    <style>
+    <style nonce="S6Nx26F8PjgPhn8UWqftecB">
         html, body {
             background-color: #1b1e21;
         }
@@ -175,8 +175,15 @@
         .outgoing_msg_img {
             display: inline-block;
             float: left;
-            width: 48px;
-            margin: 10px;
+            padding-left: 6px;
+            padding-top: 3px;
+            width: 40px;
+            margin-right: 12px;
+        }
+
+        .outgoing_msg_img img {
+            max-width: 36px;
+            max-height: 36px;
         }
 
         .received_msg {
@@ -197,25 +204,32 @@
         }
 
         .sent_withd_msg {
-            background: #464646 none repeat scroll 0 0;
+            background: transparent none repeat scroll 0 0;
             border-radius: 3px;
             color: whitesmoke;
             font-size: 18px;
+            min-height: 40px;
             margin: 0;
             margin-right: 10px;
             padding: 5px 10px 5px 12px;
+            border-left: solid #444444 3px;
         }
 
         .sent_withd_msg h5 {
             color: #989898;
+            font-family: monospace;
+            font-size: 14px;
+            font-weight: bold;
+            display: inline-block;
         }
 
-        .sent_withd_msg p {
-            padding-left: 80px;
+        .sent_withd_msg span {
+            font-family: monospace;
+            font-size: 14px;
             color: whitesmoke;
         }
 
-        .sent_withd_msg p img {
+        .sent_withd_msg span img {
             max-width: 600px;
             max-height: 600px;
         }
@@ -291,22 +305,22 @@
             margin-bottom: 14px;
         }
 
-        .outgoing_msg.welcome .sent_withd_msg {
-            color: white;
+        .outgoing_msg.welcome .sent_withd_msg,
+        .outgoing_msg.welcome .sent_withd_msg span.messageText {
+            color: orange;
             font-weight: bold;
             background-color: transparent;
             padding: 0;
             margin-right: 0;
         }
 
-        .outgoing_msg.welcome .sent_withd_msg p {
-            display: block;
+        .outgoing_msg.welcome .sent_withd_msg h5 {
+            display: none;
+        }
+
+        .outgoing_msg.welcome .sent_withd_msg {
             text-align: center;
-            width: 100%;
-            color: white;
-            font-weight: bold;
-            background-color: transparent;
-            padding: 12px;
+            border-left: none;
         }
 
         .outgoing_msg.self_msg {
@@ -327,17 +341,17 @@
         }
 
         .outgoing_msg.self_msg .sent_withd_msg,
-        .outgoing_msg.self_msg .sent_withd_msg p {
-            color: white;
+        .outgoing_msg.self_msg .sent_withd_msg span.messageText {
+            color: aquamarine;
             font-weight: bold;
-            background-color: #19829a;
+            background-color: transparent;
         }
 
         .outgoing_msg.self_msg .sent_withd_msg span.time_date {
             top: -7px;
+            font-size: 10px;
             font-weight: normal;
             color: #989898;
-            background-color: #19829a;
         }
 
         .messaging {
@@ -473,6 +487,10 @@
 
         /* phones */
         @media only screen and (max-width: 768px) {
+            div.audio_header audio {
+                display:none;
+            }
+
             button.msg_submit {
                 margin-top: 10px;
                 display: inline-block;
