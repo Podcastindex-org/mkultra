@@ -4,6 +4,7 @@ use std::{
     io::Error as IoError,
     net::SocketAddr,
     sync::{Arc, Mutex},
+    fmt
 };
 use futures_channel::mpsc::{unbounded, UnboundedSender};
 use futures_util::{future, pin_mut, stream::TryStreamExt, StreamExt};
@@ -13,6 +14,12 @@ type Tx = UnboundedSender<Message>;
 type PeerMap = Arc<Mutex<HashMap<SocketAddr, Tx>>>;
 use std::thread;
 use std::time;
+use std::str::FromStr;
+use serde::{Serialize, Deserialize};
+use serde_json::json;
+use secp256k1::{schnorr::Signature, XOnlyPublicKey, SECP256K1};
+use sha256;
+use thiserror::Error;
 use mkultra;
 
 //TODO: Comment this code!
@@ -102,14 +109,38 @@ async fn handle_connection(peer_map: PeerMap, raw_stream: TcpStream, addr: Socke
                 let mut comment: mkultra::Comment = comment;
                 let msg_id: u64 = comment.id;
                 let chat_id: String = comment.chat_id.clone();
-                if !comment.comment.trim().is_empty() && !comment.comment.contains("<script>")  {
-                    comment.id = 0;
-                    match mkultra::add_comment_to_db(comment) {
+
+                //Message types below -1 are administrative and should not contain a payload
+                if comment.kind > -2  {
+
+                    //Create an event from this comment and attempt to verify it
+                    let event = Event {
+                        id: "".to_string(),
+                        pub_key: comment.pubkey.clone(),
+                        created_at: comment.created_at,
+                        kind: comment.kind,
+                        tags: vec![],
+                        content: comment.content.clone(),
+                        sig: comment.sig.clone(),
+                    };
+
+                    match event.verify() {
                         Ok(_) => {
-                            println!("Comment added.\n");
+                            //Add the comment to the database
+                            if !comment.content.trim().is_empty() && !comment.content.contains("<script>")  {
+                                comment.id = 0;
+                                match mkultra::add_comment_to_db(comment) {
+                                    Ok(_) => {
+                                        println!("Comment added.\n");
+                                    }
+                                    Err(e) => {
+                                        eprintln!("Error adding comment: {}", e);
+                                    }
+                                }
+                            }
                         }
                         Err(e) => {
-                            eprintln!("Error adding comment: {}", e);
+                            eprintln!("Error verifying event signature: [{:#?}]", e);
                         }
                     }
                 }
@@ -154,4 +185,127 @@ async fn handle_connection(peer_map: PeerMap, raw_stream: TcpStream, addr: Socke
     println!("{} disconnected", &addr);
     let guard = peer_map.lock().unwrap().remove(&addr);
     std::mem::drop(guard);
+}
+
+
+/// Event is the struct used to represent a Nostr event
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Event {
+    /// 32-bytes sha256 of the serialized event data
+    pub id: String,
+    /// 32-bytes hex-encoded public key of the event creator
+    #[serde(rename = "pubkey")]
+    pub pub_key: String,
+    /// unix timestamp in seconds
+    pub created_at: u64,
+    /// integer
+    /// 0: NostrEvent
+    pub kind: i32,
+    /// Tags
+    pub tags: Vec<Vec<String>>,
+    /// arbitrary string
+    pub content: String,
+    /// 64-bytes signature of the sha256 hash of the serialized event data, which is the same as the "id" field
+    pub sig: String,
+}
+
+#[derive(Error, Debug, Eq, PartialEq)]
+pub enum EventError {
+    #[error("Secp256k1 Error: {}", _0)]
+    Secp256k1Error(secp256k1::Error),
+}
+
+impl From<secp256k1::Error> for EventError {
+    fn from(err: secp256k1::Error) -> Self {
+        Self::Secp256k1Error(err)
+    }
+}
+
+impl Event {
+    /// get_content returns the content of the event
+    /// # Example
+    /// ```rust
+    /// use nostr_rust::{events::EventPrepare, utils::get_timestamp, Identity};
+    /// use std::str::FromStr;
+    ///
+    /// let actual_time = get_timestamp();
+    /// let identity = Identity::from_str(env!("SECRET_KEY")).unwrap();
+    /// let event = EventPrepare {
+    ///    pub_key: env!("PUBLIC_KEY").to_string(),
+    ///    created_at: get_timestamp(),
+    ///    kind: 0,
+    ///    tags: vec![],
+    ///    content: "content".to_string(),
+    /// }.to_event(&identity, 0);
+    /// assert_eq!(event.get_content(), format!("[0,\"{}\",{},0,[],\"content\"]", env!("PUBLIC_KEY"), actual_time));
+    /// ```
+    pub fn get_content(&self) -> String {
+        json!([
+            0,
+            self.pub_key,
+            self.created_at,
+            self.kind,
+            self.tags,
+            self.content
+        ])
+            .to_string()
+    }
+
+    /// Get the id of the event which is the sha256 hash of the content
+    /// # Example
+    /// ```rust
+    /// use nostr_rust::{events::EventPrepare, Identity};
+    /// use std::str::FromStr;
+    /// let identity = Identity::from_str(env!("SECRET_KEY")).unwrap();
+    /// let event = EventPrepare {
+    ///   pub_key: env!("PUBLIC_KEY").to_string(),
+    ///   created_at: 0, // Don't use this in production
+    ///   kind: 0,
+    ///   tags: vec![],
+    ///   content: "content".to_string(),
+    /// }.to_event(&identity, 0);
+    ///
+    /// assert_eq!(event.get_content_id().len(), 64);
+    /// ```
+    pub fn get_content_id(&self) -> String {
+        sha256::digest(self.get_content())
+    }
+
+    /// Get the id of the event which is the sha256 hash of the content
+    /// # Example
+    /// ```rust
+    /// use nostr_rust::{events::EventPrepare, Identity};
+    /// use std::str::FromStr;
+    ///
+    /// let identity = Identity::from_str(env!("SECRET_KEY")).unwrap();
+    ///
+    /// let event = EventPrepare {
+    ///   pub_key: env!("PUBLIC_KEY").to_string(),
+    ///   created_at: 0, // Don't use this in production
+    ///   kind: 0,
+    ///   tags: vec![],
+    ///   content: "content".to_string(),
+    /// }.to_event(&identity, 0);
+    ///
+    /// event.verify().unwrap()
+    /// ```
+    pub fn verify(&self) -> Result<(), EventError> {
+        let message = secp256k1::Message::from_hashed_data::<secp256k1::hashes::sha256::Hash>(
+            self.get_content().as_bytes(),
+        );
+
+        SECP256K1.verify_schnorr(
+            &Signature::from_str(&self.sig)?,
+            &message,
+            &XOnlyPublicKey::from_str(&self.pub_key)?,
+        )?;
+        Ok(())
+    }
+}
+
+impl fmt::Display for Event {
+    /// Return the serialized event
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", serde_json::to_string(&self).unwrap())
+    }
 }

@@ -15,4 +15,7 @@ rusqlite = "0.29.0"
 serde = {version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 openssl = { version = "0.10", features = ["vendored"] }
+secp256k1 = { version = "0.26", features = ["bitcoin_hashes", "global-context", "rand-std"] }
+sha256 = "1.1.2"
+thiserror = "1.0.40"
 mkultra = { path = '../mkultra'}

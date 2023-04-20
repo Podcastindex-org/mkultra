@@ -11,18 +11,21 @@ const SQLITE_FILE_COMMENTS: &str = "comments.db";
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Comment {
     pub id: u64,
-    pub time: u64,
-    pub user_id: String,
+    pub created_at: u64,
+    pub pubkey: String,
     pub user_name: String,
-    pub comment: String,
+    pub content: String,
     pub chat_id: String,
     pub picture: String,
-    pub msgtype: i32,
+    pub kind: i32,
+    pub sig: String,
 }
 
 impl Comment {
     //Removes unsafe html interpretable characters from displayable strings
     pub fn escape_for_html( field: String) -> String {
+        let new_value = field.trim();
+
         let tags = hashset!["img"];
         let tag_attributes = hashmap!["img" => hashset!["src"]];
         let tag_blacklist = hashset!["script", "style"];
@@ -30,7 +33,7 @@ impl Comment {
             .tags(tags)
             .tag_attributes(tag_attributes)
             .clean_content_tags(tag_blacklist)
-            .clean(&field)
+            .clean(&new_value)
             .to_string();
     }
 
@@ -153,7 +156,7 @@ pub fn add_comment_to_db(comment: Comment) -> Result<bool, Box<dyn Error>> {
     let conn = Connection::open(SQLITE_FILE_COMMENTS)?;
 
     let comment_clean = Comment {
-        comment: Comment::escape_for_html(comment.comment),
+        content: Comment::escape_for_html(comment.content),
         user_name: Comment::escape_for_html(comment.user_name),
         picture: Comment::escape_for_html(comment.picture),
         ..comment
@@ -162,13 +165,13 @@ pub fn add_comment_to_db(comment: Comment) -> Result<bool, Box<dyn Error>> {
     match conn.execute("INSERT INTO comments (created, uid, comment, uname, cid, picture, msgtype) \
                                       VALUES (?1,      ?2,  ?3,      ?4,    ?5,  ?6,      ?7     )",
                        params![
-                           comment_clean.time,
-                           comment_clean.user_id,
-                           comment_clean.comment,
+                           comment_clean.created_at,
+                           comment_clean.pubkey,
+                           comment_clean.content,
                            comment_clean.user_name,
                            comment_clean.chat_id,
                            comment_clean.picture,
-                           comment_clean.msgtype,
+                           comment_clean.kind,
                        ]
     ) {
         Ok(_) => {
@@ -176,7 +179,7 @@ pub fn add_comment_to_db(comment: Comment) -> Result<bool, Box<dyn Error>> {
         }
         Err(e) => {
             eprintln!("{}", e);
-            return Err(Box::new(HydraError(format!("Failed to add comment: [{}].", comment_clean.user_id).into())))
+            return Err(Box::new(HydraError(format!("Failed to add comment: [{}].", comment_clean.pubkey).into())))
         }
     }
 }
@@ -242,13 +245,14 @@ pub fn get_comments_by_chat_id(chat_id: &str, msgid: u64) -> Result<Vec<Comment>
     {
         Ok(Comment {
             id: row.get(0)?,
-            time: row.get(1)?,
-            user_id: row.get(2)?,
-            comment: row.get(3)?,
+            created_at: row.get(1)?,
+            pubkey: row.get(2)?,
+            content: row.get(3)?,
             user_name: row.get(4)?,
             chat_id: row.get(5)?,
             picture: row.get(6)?,
-            msgtype: row.get(7)?,
+            kind: row.get(7)?,
+            sig: "".to_string(),
         })
     }).unwrap();
 
