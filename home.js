@@ -626,15 +626,12 @@ $(document).ready(function () {
         var signedEvent = {};
 
         if (typeof window.nostr !== "undefined") {
-            console.log(await window.nostr.getPublicKey())
-            signedEvent = await window.nostr.signEvent(event);
+            console.log(await window.nostr.getPublicKey());
+            return await window.nostr.signEvent(event);
         } else {
-            signedEvent = NostrTools.signEvent(event, profileData.privkey)
+            event.sig = NostrTools.signEvent(event, profileData.privkey);
+            return event;
         }
-
-        console.log("Signed event", signedEvent);
-
-        return signedEvent;
     }
 
     setInterval(function () {

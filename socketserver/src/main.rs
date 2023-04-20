@@ -222,23 +222,6 @@ impl From<secp256k1::Error> for EventError {
 }
 
 impl Event {
-    /// get_content returns the content of the event
-    /// # Example
-    /// ```rust
-    /// use nostr_rust::{events::EventPrepare, utils::get_timestamp, Identity};
-    /// use std::str::FromStr;
-    ///
-    /// let actual_time = get_timestamp();
-    /// let identity = Identity::from_str(env!("SECRET_KEY")).unwrap();
-    /// let event = EventPrepare {
-    ///    pub_key: env!("PUBLIC_KEY").to_string(),
-    ///    created_at: get_timestamp(),
-    ///    kind: 0,
-    ///    tags: vec![],
-    ///    content: "content".to_string(),
-    /// }.to_event(&identity, 0);
-    /// assert_eq!(event.get_content(), format!("[0,\"{}\",{},0,[],\"content\"]", env!("PUBLIC_KEY"), actual_time));
-    /// ```
     pub fn get_content(&self) -> String {
         json!([
             0,
@@ -251,44 +234,10 @@ impl Event {
             .to_string()
     }
 
-    /// Get the id of the event which is the sha256 hash of the content
-    /// # Example
-    /// ```rust
-    /// use nostr_rust::{events::EventPrepare, Identity};
-    /// use std::str::FromStr;
-    /// let identity = Identity::from_str(env!("SECRET_KEY")).unwrap();
-    /// let event = EventPrepare {
-    ///   pub_key: env!("PUBLIC_KEY").to_string(),
-    ///   created_at: 0, // Don't use this in production
-    ///   kind: 0,
-    ///   tags: vec![],
-    ///   content: "content".to_string(),
-    /// }.to_event(&identity, 0);
-    ///
-    /// assert_eq!(event.get_content_id().len(), 64);
-    /// ```
     pub fn get_content_id(&self) -> String {
         sha256::digest(self.get_content())
     }
 
-    /// Get the id of the event which is the sha256 hash of the content
-    /// # Example
-    /// ```rust
-    /// use nostr_rust::{events::EventPrepare, Identity};
-    /// use std::str::FromStr;
-    ///
-    /// let identity = Identity::from_str(env!("SECRET_KEY")).unwrap();
-    ///
-    /// let event = EventPrepare {
-    ///   pub_key: env!("PUBLIC_KEY").to_string(),
-    ///   created_at: 0, // Don't use this in production
-    ///   kind: 0,
-    ///   tags: vec![],
-    ///   content: "content".to_string(),
-    /// }.to_event(&identity, 0);
-    ///
-    /// event.verify().unwrap()
-    /// ```
     pub fn verify(&self) -> Result<(), EventError> {
         let message = secp256k1::Message::from_hashed_data::<secp256k1::hashes::sha256::Hash>(
             self.get_content().as_bytes(),
